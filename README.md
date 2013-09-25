@@ -1,0 +1,3 @@
+Web-application-for-intra-day-trade-calculation-using-google-app-script
+=======================================================================
+This a web application whose url is "(https://script.google.com/macros/s/AKfycbzlNWAPKEDcu6yKnMQa83dXZVY1hyhBBTmat_wVQVLS/dev)".The application automatically creates a spreadsheet in google drive with date(eg.14/12/2013) as its name .We need to paste the day's calculations in the spreadsheet and click on calculate button in the web application.A new spreadsheet with "final" is appended to the current workbook with the required values.This web application actually automates the trading calculations which otherwise needs to be done  manually via entering each trade value in the spreadsheet which is very tedious.
