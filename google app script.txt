@@ -1,0 +1,197 @@
+function doGet() {
+  //var html=HtmlService.createHtmlOutputFromFile('index');
+   var app = UiApp.createApplication();
+   var button = app.createButton("Create").setId("button");
+   button.addClickHandler(app.createServerHandler("myFunction"));
+   app.add(button);
+   var button1 = app.createButton("Calculations").setId("button");
+   button.addClickHandler(app.createServerHandler("Calculate"));
+  app.add(button1);
+  return app;
+}
+function myFunction() {
+   var cache = CacheService.getPublicCache();
+  var date=new Date();
+  
+var ssNew = SpreadsheetApp.create(date.getDate()+"/"+date.getMonth()+"/"+date.getFullYear());
+  
+   cache.put('id',ssNew.getId(),1800);
+  var sheet = ssNew.getSheets()[0];
+  Logger.log(ssNew.getId());
+  var columnNames1 = ["TraderID","Symbol","OrderDate&Time","TransDate&Time","Type","Shares","ExecPrice"];
+  var headersRange = sheet.getRange(1, 1, 1, columnNames1.length);
+  headersRange.setValues([columnNames1]);
+ 
+  }
+  function Calculate()
+  {
+  var cache = CacheService.getPublicCache();
+    var sid=cache.get('id');
+    Logger.log(sid);
+    var ss=SpreadsheetApp.openById(sid);
+    var sheet=ss.getSheets()[0];
+     var data = getRowsData(sheet);
+    
+  var columnNames = ["symbol", "shares", "buy", "sell","comission","p/l","nop","nol","p.value","l.value"];
+  ss.insertSheet("final", ss.getSheets().length);
+  var sheet1 = ss.getSheetByName("final");
+  var headersRange = sheet1.getRange(1, 1, 1, columnNames.length);
+  headersRange.setValues([columnNames]);
+  var data12={};
+  var data123=[];
+  var a=sheet.getLastRow()-2;
+  var i;
+  for(i=a;i>=0;--i)
+  {
+    if(data[i].type=="Buy")
+    {
+       data12["symbol"]=data[i].symbol;
+       data12["shares"]=data[i].shares;
+       data12["buy"]=data[i].execprice;
+    
+      for(var k=i-1;k>=0;--k)
+      {
+        if((data[k].symbol==data[i].symbol)&&(data[k].type=="Sell"))
+        {
+        
+          data12["sell"]=data[k].execprice;
+          data123.push(cloneMessage(data12));
+          break;
+        }
+      }
+    }
+  }
+  setRowsData(sheet1,data123);
+  var commissionRange=sheet1.getRange(2,5,sheet1.getLastRow()-1);
+  commissionRange.setValue(20);
+  var plfor=sheet1.getRange(2,6);
+  plfor.setFormula("=((D2-C2)*B2)-E2");
+   var nop=sheet1.getRange(2,7);
+  var n=sheet1.getLastRow();
+  nop.setFormula('=COUNTIF($F$2:$F$'+n+',">=0")');
+  var nol=sheet1.getRange(2,8);
+  nol.setFormula('=COUNTIF($F$2:$F$'+n+',"<=0")');
+  var profit=sheet1.getRange(2,11);
+  profit.setFormula("=if(F2>=0,F2,0)");
+  var loss=sheet1.getRange(2,12);
+  loss.setFormula("=if(F2<=0,F2,0)");
+   var pvalue=sheet1.getRange(2,9);
+  pvalue.setFormula('=sum(k2:k'+n+')');
+   var lvalue=sheet1.getRange(2,10);
+  lvalue.setFormula('=sum(l2:l'+n+')');
+  
+}
+function cloneMessage(servermessage) {
+    var clone ={};
+    for( var key in servermessage ){
+        if(servermessage.hasOwnProperty(key)) 
+            clone[key]=servermessage[key];
+    }
+    return clone;
+}
+function getRowsData(sheet, range, columnHeadersRowIndex) {
+  var headersIndex = columnHeadersRowIndex || range ? range.getRowIndex() - 1 : 1;
+  var dataRange = range ||
+    sheet.getRange(headersIndex + 1, 1, sheet.getMaxRows() - headersIndex, sheet.getMaxColumns());
+  var numColumns = dataRange.getEndColumn() - dataRange.getColumn() + 1;
+  var headersRange = sheet.getRange(headersIndex, dataRange.getColumn(), 1, numColumns);
+  var headers = headersRange.getValues()[0];
+  return getObjects(dataRange.getValues(), normalizeHeaders(headers));
+}
+function setRowsData(sheet, objects, optHeadersRange, optFirstDataRowIndex) {
+  var headersRange = optHeadersRange || sheet.getRange(1, 1, 1, sheet.getMaxColumns());
+  var firstDataRowIndex = optFirstDataRowIndex || headersRange.getRowIndex() + 1;
+  var headers = normalizeHeaders(headersRange.getValues()[0]);
+
+  var data = [];
+  for (var i = 0; i < objects.length; ++i) {
+    var values = []
+    for (j = 0; j < headers.length; ++j) {
+      var header = headers[j];
+      if ((header.length > 0) && (objects[i][header] == 0)) {
+        values.push(0);
+      }
+      
+      else if ((!(header.length > 0)) || (objects[i][header]=='')) {
+        values.push('');
+      }
+      else {
+        values.push(objects[i][header]);
+      }
+    }
+    data.push(values);
+  }
+
+  var destinationRange = sheet.getRange(firstDataRowIndex, headersRange.getColumnIndex(),
+                                        objects.length, headers.length);
+  destinationRange.setValues(data);
+}
+
+function getObjects(data, keys) {
+  var objects = [];
+  for (var i = 0; i < data.length; ++i) {
+    var object = {};
+    var hasData = false;
+    for (var j = 0; j < data[i].length; ++j) {
+      var cellData = data[i][j];
+      if (isCellEmpty(cellData)) {
+        continue;
+      }
+      object[keys[j]] = cellData;
+      hasData = true;
+    }
+    if (hasData) {
+      objects.push(object);
+    }
+  }
+  return objects;
+}
+
+function normalizeHeaders(headers) {
+  var keys = [];
+  for (var i = 0; i < headers.length; ++i) {
+    keys.push(normalizeHeader(headers[i]));
+  }
+  return keys;
+}
+
+function normalizeHeader(header) {
+  var key = "";
+  var upperCase = false;
+  for (var i = 0; i < header.length; ++i) {
+    var letter = header[i];
+    if (letter == " " && key.length > 0) {
+      upperCase = true;
+      continue;
+    }
+    if (!isAlnum(letter)) {
+      continue;
+    }
+    if (key.length == 0 && isDigit(letter)) {
+      continue; 
+    }
+    if (upperCase) {
+      upperCase = false;
+      key += letter.toUpperCase();
+    } else {
+      key += letter.toLowerCase();
+    }
+  }
+  return key;
+}
+
+
+function isCellEmpty(cellData) {
+  return typeof(cellData) == "string" && cellData == "";
+}
+
+
+function isAlnum(char) {
+  return char >= 'A' && char <= 'Z' ||
+    char >= 'a' && char <= 'z' ||
+    isDigit(char);
+}
+
+function isDigit(char) {
+  return char >= '0' && char <= '9';
+}
